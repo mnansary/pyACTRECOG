@@ -53,16 +53,10 @@ def dump_data(file_path,data):
     with open(file_path,'w') as fd:
         json.dump(data,fd,indent=2,ensure_ascii=False)
 
-def read_image(image_path,image_dim,rot_angle=None,flip_id=None):
+def read_image(image_path,image_dim):
     img=Image.open(image_path)
-    img=img.resize((image_dim,image_dim))
-    if rot_angle:
-        img=img.rotate(rot_angle)
-    if flip_id:
-        x=getFlipDataById(img,flip_id)
-    else:
-        x=getFlipDataById(img,0)
-    x=(x/255.0).astype(np.float32)
+    x=img.resize((image_dim,image_dim))
+    x=(np.array(x)/255.0).astype(np.float32)
     return x
 
 def preprocess_sequence(sequnce,class_list,image_dim,img_iden='color_',img_ext='.png'):
@@ -70,30 +64,16 @@ def preprocess_sequence(sequnce,class_list,image_dim,img_iden='color_',img_ext='
     id_start=int(sequnce['start'])
     id_stop=int(sequnce['stop'])
     class_id=sequnce['class']
-    rot_angle=sequnce['rotation']
-    flip_id=int(sequnce['flip'])
     image_paths=[os.path.join(img_dir,'{}{}{}'.format(img_iden,i,img_ext)) for i in range(id_start,id_stop+1)]
     features=[]
     for image_path in image_paths:
-        features.append(read_image(image_path,image_dim,rot_angle,flip_id))
+        features.append(read_image(image_path,image_dim))
     X=np.array(features)
     Y=class_list.index(class_id)
     return X,Y
-
-def getFlipDataById(img,fid):
-    if fid==0:# ORIGINAL
-        x=np.array(img)
-    elif fid==1:# Left Right Flip
-        x=np.array(img.transpose(Image.FLIP_LEFT_RIGHT))
-    elif fid==2:# Up Down Flip
-        x=np.array(img.transpose(Image.FLIP_TOP_BOTTOM))
-    else: # Mirror Flip
-        x=img.transpose(Image.FLIP_TOP_BOTTOM)
-        x=np.array(x.transpose(Image.FLIP_LEFT_RIGHT))
-    return x
 #--------------------------------------------------------------------------------------------------------------------------------------------------
 class DataSet(object):
-    def __init__(self,src_path,dest_path,STATS,mode,rot_start=0,rot_step=5,rot_stop=40):
+    def __init__(self,src_path,dest_path,STATS,mode):
         self.src_path  = src_path
         self.dest_path = dest_path
         self.mode = mode
@@ -104,10 +84,6 @@ class DataSet(object):
         self.nb_channels=   STATS.NB_CHANNELS
         self.batch_size =   STATS.BATCH_SIZE
         self.file_size  =   STATS.FILE_LEN
-
-        self.rot_start=rot_start
-        self.rot_stop=rot_stop
-        self.rot_step=rot_step
 
     
     def __getMinSeqLen(self):
@@ -168,25 +144,20 @@ class DataSet(object):
                     final_class='no-action'
                 
                 if self.mode!='Test': 
-                    for rot_angle in range(self.rot_start,self.rot_stop,self.rot_step):
-                        for flip_id in range(4):
-                            seq_dict={'path' :img_dir,
-                                    'start':id_start,
-                                    'stop' :id_stop,
-                                    'class':final_class,
-                                    'rotation':rot_angle,
-                                    'flip':flip_id}
-                            if final_class=='no-action':
-                                not_dict.append(seq_dict)
-                            else:
-                                action_dict.append(seq_dict)
+                    seq_dict={'path' :img_dir,
+                            'start':id_start,
+                            'stop' :id_stop,
+                            'class':final_class}
+                            
+                    if final_class=='no-action':
+                        not_dict.append(seq_dict)
+                    else:
+                        action_dict.append(seq_dict)
                 else:
                     seq_dict={'path' :img_dir,
                                     'start':id_start,
                                     'stop' :id_stop,
-                                    'class':final_class,
-                                    'rotation':0,
-                                    'flip':0}
+                                    'class':final_class}
                     data_dict.append(seq_dict)
             
             if self.mode!='Test':

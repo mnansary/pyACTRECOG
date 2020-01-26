@@ -32,6 +32,7 @@ def createDataset(args,STATS,mode,EXEC):
 def main(args,STATS):
     start_time=time.time()
     createDataset(args,STATS,'Test','json')
+    createDataset(args,STATS,'Eval','tfrecord')
     createDataset(args,STATS,'Train','tfrecord')
     
     
